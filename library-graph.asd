@@ -8,6 +8,4 @@
   :components ((:file "library-graph")
                (:file "library-graph-2")
                (:file "library-graph-3")
-               (:file "sample-connectors")
-               (:file "sample-queries")))
-
+               (:file "sample-connectors")))
