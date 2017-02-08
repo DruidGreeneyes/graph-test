@@ -33,13 +33,11 @@
     (vector-push-extend edge graph add-size)))
 
 (defun valid-edge-p (edge &key (source nil) (dest nil) (e-type nil) (weight nil))
-  (let ((tests nil))
-    (when source (push (= source (edge-source edge)) tests))
-    (when dest (push (= dest (edge-dest edge)) tests))
-    (when e-type (push (= e-type (edge-type edge)) tests))
-    (when weight (push (= weight (edge-weight edge)) tests))
-    (and (not (member nil tests))
-         edge)))
+  (and (if source (= source (edge-source edge)) t)
+       (if dest (= dest (edge-dest edge)) t)
+       (if e-type (= e-type (edge-type edge)) t)
+       (if weight (= weight (edge-weight edge)) t) 
+       edge))
 
 (defmacro current-edge () `(aref graph pos))
 

@@ -20,7 +20,7 @@
 (defun trim-to-fill-pointer (vector)
   (adjust-array vector (fill-pointer vector)))
 
-(defstruct (edge (:conc-name nil) (:constructor make-edge edge-source edge-dest))
+(defstruct (edge (:conc-name nil) (:constructor make-edge (edge-source edge-dest)))
   (edge-source -1 :type integer :read-only t)
   (edge-dest -1 :type integer :read-only t) 
   (edge-weight 1 :type integer))
@@ -64,7 +64,7 @@
      collect edge))
 
 (defmacro define-connector (name &rest body)
-  `(let ((graph (make-array 10 :element-type 'edge :adjustable t :fill-pointer 0)))
+  `(let ((graph (make-array 100 :element-type 'edge :adjustable t :fill-pointer 0)))
      (setf (gethash ,name *graphs*) graph)
      (push (lambda  (person-id book-id)
              ,@body) *connectors*)))
@@ -75,21 +75,24 @@
         (incf (edge-weight edge))
         (add-to-graph graph (make-edge v1 v2)))))
 
-(define-connector person-to-book
+(define-connector 'person-to-book
     (connect-vertices person-id book-id graph))
 
-(define-connector books-bought-together
+(define-connector 'books-bought-together
     (let ((edges (remove-if #'(lambda (edge) (= book-id (edge-dest edge)))
                             (find-connections-from (gethash 'person-to-book *graphs*) person-id))))
       (loop for edge in edges
          do (connect-vertices book-id (edge-dest edge) graph))))
 
+(defun make-percent (decimal)
+  (round (* 100 decimal)))
+
 (defun slurp (text-stream)
   (handler-bind ((end-of-file #'loop-finish))
     (loop for line = (read-line text-stream) then (read-line text-stream)
        do (loop for conn in *connectors*
-             do (apply conn (mapcar #'parse-integer (split-by #\, line))))
-       finally (return *graphs*))))
+             do (apply conn (mapcar #'parse-integer (split-by #\, line)))
+             finally (return *graphs*)))))
 
 (defmacro define-query (query-name graph-name condition-lambda &key (query-table *sample-queries*) (graph-table *graphs*))
   `(let ((graph (gethash ,graph-name ,graph-table)))
@@ -99,9 +102,17 @@
                 when (apply condition-lambda edge)
                 collect (print-edge nil edge))))))
 
+(defun count-lines (in-stream &optional (count 0))
+  (handler-case (read-line in-stream)
+    (end-of-file () count)
+    (:no-error () (count-lines in-stream (1+ count)))))
+
 (defun main (in-file &optional (out-file "output.txt") &key (query-table *sample-queries*)) 
-  (with-open-file (out-stream out-file :direction :output :if-exists :rename :if-does-not-exist :create)
+  (with-open-file (out-stream out-file :direction :output :if-exists :rename :if-does-not-exist :create) 
     (with-open-file (in-stream in-file)
-      (let ((results (slurp in-stream)))
-        (loop for query being the hash-values in query-table using (hash-key name)
-           do (format out-stream "Running query ~A:~%~{~A~%~}~%~%" name (funcall query)))))))
+      (let ((num-lines (count-lines in-stream)))
+        (format t "lines to process: ~D" num-lines)
+        (file-position in-stream 0)
+        (let ((results (slurp in-stream)))
+          (loop for query being the hash-values in query-table using (hash-key name)
+             do (format out-stream "Running query ~A:~%~{~A~%~}~%~%" name (funcall query))))))))
